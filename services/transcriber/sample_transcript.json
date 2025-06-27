@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "language": "en",
+  "duration": 0.0,
+  "segments": [
+    {
+      "start": 0.0,
+      "end": 4.8,
+      "text": "This is a sample audio file for testing the ClipStream transcriber service."
+    },
+    {
+      "start": 5.68,
+      "end": 13.36,
+      "text": "The quick brown fox jumps over the lazy dog. This audio is approximately 5 seconds long."
+    }
+  ],
+  "text": "This is a sample audio file for testing the ClipStream transcriber service. The quick brown fox jumps over the lazy dog. This audio is approximately 5 seconds long.",
+  "processing_time": 1.8260469436645508
+}

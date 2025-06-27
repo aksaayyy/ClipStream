@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  yt-fetcher:
+    build: ./services/yt-fetcher
+    volumes:
+      - shared_data:/data
+    ports:
+      - "8001:8000"  # Changed external port to 8001 to avoid conflict
+    environment:
+      - DOWNLOAD_DIR=/data/downloads
+      - MAX_FILE_SIZE_MB=4000  # 4GB max file size
+      - MAX_VIDEO_LENGTH=14400  # 4 hours max duration
+      - RATE_LIMIT=50/day  # More conservative limit for production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - clipstream_network
+
+  transcriber:
+    build: ./services/transcriber
+    volumes:
+      - shared_data:/data
+    ports:
+      - "5002:5002"  # Using port 5002 on host to match container's port
+    environment:
+      - DOWNLOAD_DIR=/data/downloads
+      - TRANSCRIPTS_DIR=/data/transcripts
+    depends_on:
+      - yt-fetcher
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - clipstream_network
+
+  clip-renderer:
+    build: ./services/clip-renderer
+    volumes:
+      - shared_data:/data
+    ports:
+      - "8080:5004"  # Map host port 8080 to container port 5004
+    environment:
+      - BASE_DIR=/data  # Set base directory for the application
+      - DOWNLOAD_DIR=/data/downloads
+      - TRANSCRIPTS_DIR=/data/transcripts
+      - CLIPS_DIR=/data/clips
+      - FINAL_DIR=/data/final
+    depends_on:
+      - transcriber
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - clipstream_network
+
+volumes:
+  shared_data:
+
+networks:
+  clipstream_network:
+    driver: bridge

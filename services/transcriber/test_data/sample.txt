@@ -1,0 +1,1 @@
+This is a sample audio file for testing the ClipStream transcriber service. The quick brown fox jumps over the lazy dog. This audio is approximately 5 seconds long.

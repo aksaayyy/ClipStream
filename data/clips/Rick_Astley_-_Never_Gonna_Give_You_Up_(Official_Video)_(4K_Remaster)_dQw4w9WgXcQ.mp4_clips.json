@@ -1,0 +1,19 @@
+{
+  "clips": [
+    {
+      "start": 42.0,
+      "end": 59.0,
+      "title": "Chorus 1"
+    },
+    {
+      "start": 85.0,
+      "end": 101.0,
+      "title": "Chorus 2"
+    },
+    {
+      "start": 161.0,
+      "end": 179.0,
+      "title": "Final Chorus"
+    }
+  ]
+}

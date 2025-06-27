@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  analyzer:
+    build: .
+    container_name: clipstream-analyzer
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./app:/app/app
+      - ./data:/data
+      # Mount the model cache as a volume for persistence
+      - model_cache:/app/model_cache
+      # Also mount the default cache locations to ensure the model is found
+      - huggingface_cache:/root/.cache/huggingface
+      - torch_cache:/root/.cache/torch
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+      # Set all cache-related environment variables to the same directory
+      - HF_HOME=/app/model_cache
+      - TRANSFORMERS_CACHE=/app/model_cache
+      - HUGGINGFACE_HUB_CACHE=/app/model_cache
+      - TOKENIZERS_PARALLELISM=false
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          memory: 1G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  model_cache:
+    driver: local
+  huggingface_cache:
+    driver: local
+  torch_cache:
+    driver: local
