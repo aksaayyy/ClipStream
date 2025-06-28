@@ -24,6 +24,7 @@ A high-performance, modular system for auto-generating viral short-form content 
 - Python 3.8+
 - FFmpeg (for local development)
 - Git LFS (for handling large files)
+- At least 8GB RAM (16GB recommended for better performance)
 
 ### Installation
 
@@ -42,21 +43,65 @@ A high-performance, modular system for auto-generating viral short-form content 
    ```bash
    docker-compose up -d
    ```
+   
+   Wait for all services to be healthy. You can check status with:
+   ```bash
+   docker-compose ps
+   ```
 
-4. **Install development dependencies**
+4. **Install Python dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
+   
+   For development, also install:
    ```bash
    pip install -r requirements-dev.txt
    pre-commit install
    ```
 
-### Usage
+## 🎬 Main Entry Point: process_video.py
+
+The primary way to process videos through the ClipStream pipeline is using `process_video.py`. This script handles the entire workflow from downloading to rendering clips.
+
+### Basic Usage
 
 ```bash
-# Process a YouTube video
-python clipstream.py process "https://www.youtube.com/watch?v=VIDEO_ID"
+# Process a YouTube video through the entire pipeline
+python process_video.py "https://www.youtube.com/watch?v=VIDEO_ID"
 
-# Check service status
+# Force re-download even if video exists
+python process_video.py --force "https://www.youtube.com/watch?v=VIDEO_ID"
+
+# Specify output directory
+python process_video.py --output-dir ./my_clips "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+### Advanced Options
+
+```bash
+# Show all available options
+python process_video.py --help
+
+# Process with custom settings
+python process_video.py \
+    --chunk-duration 300 \
+    --whisper-model tiny \
+    --top-clips 3 \
+    "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+### Checking Service Status
+
+```bash
+# Check health of all services
 python clipstream.py check-health
+
+# Check individual service
+curl http://localhost:8001/health  # yt-fetcher
+curl http://localhost:5002/health  # transcriber
+curl http://localhost:5003/health  # analyzer
+curl http://localhost:8080/health  # clip-renderer
 ```
 
 ## 🛠 Development
@@ -65,13 +110,50 @@ python clipstream.py check-health
 
 ```
 ClipStream/
+├── process_video.py        # Main entry point for video processing
+├── clipstream.py           # CLI tool for service management
 ├── services/               # Microservices
 │   ├── yt-fetcher/         # YouTube download service
 │   ├── transcriber/        # Speech-to-text service
+│   ├── analyzer/           # Content analysis service
 │   └── clip-renderer/      # Video processing service
+├── data/                   # Data directory (downloads, transcripts, clips)
+│   ├── downloads/         # Downloaded videos
+│   ├── transcripts/       # Generated transcripts
+│   └── clips/             # Rendered video clips
 ├── tests/                  # Test suite
-├── docker-compose.yml       # Production compose
-└── clipstream.py           # Main CLI tool
+└── docker-compose.yml      # Production compose
+```
+
+### Environment Variables
+
+Configure the system using these environment variables in a `.env` file:
+
+```env
+# Base directories
+BASE_DIR=./data
+DOWNLOAD_DIR=${BASE_DIR}/downloads
+TRANSCRIPTS_DIR=${BASE_DIR}/transcripts
+CLIPS_DIR=${BASE_DIR}/clips
+FINAL_DIR=${BASE_DIR}/final
+
+# Service URLs (defaults to localhost)
+YT_FETCHER_URL=http://localhost:8001
+TRANSCRIBER_URL=http://localhost:5002
+ANALYZER_URL=http://localhost:5003
+RENDERER_URL=http://localhost:8080
+
+# Performance settings
+MAX_WORKERS=4
+CHUNK_DURATION=600  # 10 minutes
+WHISPER_MODEL=tiny  # tiny, base, small, medium, large
+TOP_CLIPS=5
+
+# Timeouts (in seconds)
+DOWNLOAD_TIMEOUT=1800
+TRANSCRIBE_TIMEOUT=3600
+ANALYZE_TIMEOUT=600
+RENDER_TIMEOUT=1800
 ```
 
 ### Code Style
@@ -102,6 +184,35 @@ pytest
 pytest --cov=services --cov-report=term-missing
 ```
 
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **Service Not Starting**
+   - Check Docker logs: `docker-compose logs <service_name>`
+   - Verify ports are available
+   - Ensure sufficient system resources (CPU, RAM, disk space)
+
+2. **Video Download Fails**
+   - Check internet connection
+   - Verify YouTube video is available in your region
+   - Try with `--force` flag to re-download
+
+3. **Transcription Fails**
+   - Check if Whisper model is downloaded
+   - Increase `TRANSCRIBE_TIMEOUT` for long videos
+   - Try a smaller model (e.g., `--whisper-model tiny`)
+
+4. **Analysis Timeout**
+   - Increase `ANALYZE_TIMEOUT`
+   - Reduce `TOP_CLIPS` value
+   - Check analyzer service logs
+
+5. **Rendering Issues**
+   - Verify FFmpeg is installed
+   - Check available disk space
+   - Ensure proper permissions on output directories
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -110,7 +221,11 @@ pytest --cov=services --cov-report=term-missing
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-Please make sure to update tests as appropriate.
+Please make sure to:
+- Update tests as appropriate
+- Add documentation for new features
+- Follow the existing code style
+- Update the CHANGELOG.md if applicable
 
 ## 📄 License
 
