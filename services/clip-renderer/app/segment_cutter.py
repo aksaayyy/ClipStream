@@ -81,6 +81,7 @@ def cut_segment(
             'crop=1080:1920',  # Crop to 9:16 aspect ratio
             'pad=1080:1920:(ow-iw)/2:(oh-ih)/2:color=black@0.0'  # Center if needed
         ])
+        output_width, output_height = 1080, 1920
         logger.debug("Applied vertical (9:16) format filters")
     elif video_format == "square":
         # For square (1:1)
@@ -88,9 +89,12 @@ def cut_segment(
             'scale=1080:1080:force_original_aspect_ratio=increase',
             'crop=1080:1080',
         ])
+        output_width, output_height = 1080, 1080
         logger.debug("Applied square (1:1) format filters")
     else:
-        logger.debug("Using original video format (no resizing/cropping)")
+        # For original format, get dimensions from source
+        output_width, output_height = get_video_dimensions(input_path)
+        logger.debug(f"Using original video format: {output_width}x{output_height}")
     
     # Audio filters - simplified for test compatibility
     af_filters = []
@@ -101,6 +105,9 @@ def cut_segment(
             'volume=2.0',  # Simple volume boost instead of complex normalization
             'aresample=async=1000'  # Add async resampling to handle potential sync issues
         ])
+    
+    # Calculate if we need to pad the video to reach 15 seconds
+    needs_padding = duration < 15.0
     
     # Build FFmpeg command with more robust audio handling
     cmd = [
@@ -119,15 +126,31 @@ def cut_segment(
         '-ac', '2',  # Stereo audio
         '-avoid_negative_ts', 'make_zero',  # Handle negative timestamps
         '-fflags', '+genpts',  # Generate missing PTS if needed
-        '-strict', 'experimental'  # Allow experimental codecs if needed
+        '-strict', 'experimental',  # Allow experimental codecs if needed
+        '-r', '30'  # Force constant frame rate for better compatibility
     ]
     
-    # Add video filters if any
-    if vf_filters:
-        cmd.extend(['-vf', ','.join(vf_filters)])
+    # If we need to pad to reach 15 seconds
+    if needs_padding:
+        pad_duration = 15.0 - duration
+        # Add a silent audio source for padding
+        cmd.extend([
+            '-f', 'lavfi',
+            '-i', f'aevalsrc=0:d={pad_duration}:s=44100',
+            '-filter_complex', f'[0:v]fps=30,{vf_filters[0] if vf_filters else "null"}[v];[0:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=1.0[a];[1:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume=0.0[apad];[a][apad]concat=n=2:v=0:a=1[outa]',
+            '-map', '[v]',
+            '-map', '[outa]',
+            '-t', '15.0'  # Force output to be exactly 15 seconds
+        ])
+        vf_filters = []  # Already applied in filter_complex
+    else:
+        # Add video filters if any (only if not using filter_complex)
+        if vf_filters:
+            cmd.extend(['-vf', ','.join(vf_filters)])
+            vf_filters = []  # Clear to avoid duplicate application
     
-    # Add audio filters if any
-    if af_filters:
+    # Add audio filters if any (only if not using filter_complex)
+    if af_filters and not needs_padding:
         cmd.extend(['-af', ','.join(af_filters)])
     
     # Add output file
@@ -166,6 +189,35 @@ def cut_segment(
             except OSError as e:
                 logger.warning(f"Failed to remove output file {output_path}: {e}", exc_info=True)
         return False, output
+
+def get_video_dimensions(input_path: Union[str, Path]) -> Tuple[int, int]:
+    """
+    Get the width and height of a video file using FFprobe.
+    
+    Args:
+        input_path: Path to the video file
+        
+    Returns:
+        Tuple of (width, height) in pixels
+    """
+    try:
+        cmd = [
+            'ffprobe',
+            '-v', 'error',
+            '-select_streams', 'v:0',
+            '-show_entries', 'stream=width,height',
+            '-of', 'csv=p=0',
+            str(input_path)
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        width, height = map(int, result.stdout.strip().split(','))
+        return width, height
+    except Exception as e:
+        logger.warning(f"Could not get video dimensions for {input_path}: {e}")
+        # Default to 1920x1080 if we can't determine the dimensions
+        return 1920, 1080
+
 
 def get_video_duration(input_path: Union[str, Path]) -> Optional[float]:
     """

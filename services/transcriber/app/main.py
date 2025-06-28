@@ -53,18 +53,70 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
-    logger.error(f"Validation error: {str(exc)}")
+    # Convert any bytes to strings in the error details
+    def clean_errors(errors):
+        cleaned = []
+        for error in errors:
+            if isinstance(error, dict):
+                cleaned_error = {}
+                for k, v in error.items():
+                    if isinstance(v, (bytes, bytearray)):
+                        try:
+                            cleaned_error[k] = v.decode('utf-8')
+                        except UnicodeDecodeError:
+                            cleaned_error[k] = str(v)
+                    elif isinstance(v, dict):
+                        cleaned_error[k] = clean_errors([v])[0] if v else v
+                    elif isinstance(v, list):
+                        cleaned_error[k] = clean_errors(v)
+                    else:
+                        cleaned_error[k] = v
+                cleaned.append(cleaned_error)
+            elif isinstance(error, (list, tuple)):
+                cleaned.append(clean_errors(error))
+            elif isinstance(error, (bytes, bytearray)):
+                try:
+                    cleaned.append(error.decode('utf-8'))
+                except UnicodeDecodeError:
+                    cleaned.append(str(error))
+            else:
+                cleaned.append(error)
+        return cleaned
+
+    # Log the error with cleaned data
+    logger.error(f"Validation error: {str(exc)}\n{exc.errors()}")
+    
+    # Return a safe response with cleaned error details
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"success": False, "error": "Invalid request data", "details": exc.errors()},
+        content={
+            "success": False, 
+            "error": "Invalid request data", 
+            "details": clean_errors(exc.errors())
+        },
     )
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.error(f"Unexpected error: {str(exc)}\n{traceback.format_exc()}")
+    # Convert bytes to string if needed
+    error_message = str(exc)
+    if isinstance(exc, (bytes, bytearray)):
+        try:
+            error_message = exc.decode('utf-8')
+        except UnicodeDecodeError:
+            error_message = str(exc)
+    
+    # Log the error
+    logger.error(f"Unexpected error: {error_message}\n{traceback.format_exc()}")
+    
+    # Return a safe error response
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"success": False, "error": "Internal server error"},
+        content={
+            "success": False, 
+            "error": f"Internal server error: {error_message}",
+            "error_type": exc.__class__.__name__
+        },
     )
 
 # Health check endpoint

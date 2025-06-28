@@ -51,9 +51,64 @@ class TestVideoRenderer:
         self.test_transcript = str(TEST_DATA_DIR / SAMPLE_TRANSCRIPT)
         self.test_clips = str(TEST_DATA_DIR / SAMPLE_CLIPS)
         self.output_dir = tempfile.mkdtemp()
+        
+        # Create a longer test video (30 seconds) for duration testing
+        self.long_video = str(TEST_DATA_DIR / "long_test_video.mp4")
+        if not os.path.exists(self.long_video):
+            os.system(f'ffmpeg -y -f lavfi -i testsrc=duration=30:size=1280x720:rate=30 -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=44100 -c:v libx264 -t 30 -pix_fmt yuv420p {self.long_video}')
 
-    @patch('app.renderer.VideoRenderer._get_file_paths')
-    @patch('app.caption_overlay.add_captions')
+    def test_render_clips_duration_enforcement(self):
+        """Test that clips are exactly 15 seconds long."""
+        # Create a test clips file with different duration scenarios
+        test_clips = {
+            "recommended_clips": [
+                # Clip longer than 15 seconds (should be centered)
+                {"start": 0, "end": 30, "text": "Long clip"},
+                # Clip shorter than 15 seconds (should be padded)
+                {"start": 0, "end": 5, "text": "Short clip"},
+                # Clip exactly 15 seconds (should remain unchanged)
+                {"start": 0, "end": 15, "text": "Perfect clip"}
+            ]
+        }
+        
+        # Save test clips to a temporary file
+        test_clips_path = os.path.join(self.output_dir, "test_clips.json")
+        with open(test_clips_path, 'w') as f:
+            json.dump(test_clips, f)
+        
+        # Set up the renderer with our test files
+        renderer = VideoRenderer()
+        
+        # Mock the _get_file_paths method to return our test files
+        with patch('app.renderer.VideoRenderer._get_file_paths') as mock_paths:
+            mock_paths.return_value = (
+                Path(self.long_video),  # Use our 30s test video
+                Path(self.test_transcript),
+                Path(test_clips_path)
+            )
+            
+            # Call the method under test
+            success, clips, error = renderer.render_clips(
+                video_name="long_test_video.mp4",
+                output_dir=self.output_dir,
+                add_captions=False  # Disable captions for this test
+            )
+        
+        # Verify the results
+        assert success is True, f"render_clips failed with error: {error}"
+        assert len(clips) == 3, f"Expected 3 clips, got {len(clips)}"
+        
+        # Verify each clip is exactly 15 seconds long
+        from app.segment_cutter import get_video_duration
+        
+        for i, clip_path in enumerate(clips):
+            duration = get_video_duration(clip_path)
+            assert abs(duration - 15.0) < 0.1, f"Clip {i+1} is {duration:.2f}s, expected 15.0s"
+            
+            # Clean up
+            if os.path.exists(clip_path):
+                os.remove(clip_path)
+    
     def test_render_clips_basic(self, mock_add_captions, mock_paths):
         """Test basic clip rendering functionality."""
         # Set up the mocks
@@ -64,7 +119,8 @@ class TestVideoRenderer:
         )
         
         # Mock the add_captions function to return success
-        mock_add_captions.return_value = (True, str(Path(self.output_dir) / "test_output.mp4"))
+        output_path = str(Path(self.output_dir) / "test_output.mp4")
+        mock_add_captions.return_value = (True, output_path)
         
         # Call the method under test
         success, clips, error = self.renderer.render_clips(

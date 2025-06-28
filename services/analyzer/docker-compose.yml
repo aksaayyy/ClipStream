@@ -8,12 +8,14 @@ services:
       - "5003:5003"
     volumes:
       - ./app:/app/app
-      - ./data:/data
+      - shared_data:/data
       # Mount the model cache as a volume for persistence
       - model_cache:/app/model_cache
       # Also mount the default cache locations to ensure the model is found
       - huggingface_cache:/root/.cache/huggingface
       - torch_cache:/root/.cache/torch
+    networks:
+      - clipstream_network
     environment:
       - PYTHONPATH=/app
       - LOG_LEVEL=INFO
@@ -49,3 +51,11 @@ volumes:
     driver: local
   torch_cache:
     driver: local
+  shared_data:
+    external: true
+    name: clipstream_shared_data
+
+networks:
+  clipstream_network:
+    external: true
+    name: clipstream_clipstream_network

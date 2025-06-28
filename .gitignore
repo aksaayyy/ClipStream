@@ -36,7 +36,18 @@ ENV/
 .DS_Store
 
 # Project specific
+# Data directories
+data/
+!data/README.md
+!data/.gitkeep
+
+# Output files
 rendered_clips/
+test_output/
+test_output_enhanced/
+test_output_fixed/
+
+# Service-specific ignores
 services/downloads/
 services/transcriber/models/
 services/transcriber/.cache/
@@ -44,10 +55,41 @@ services/transcriber/__pycache__/
 services/yt-fetcher/__pycache__/
 services/clip-renderer/__pycache__/
 services/analyzer/__pycache__/
+
+# Media files
 *.mp4
 *.mp3
 *.wav
 *.flac
+*.mov
+*.avi
+*.mkv
+
+# Logs
+*.log
+
+# Local development
+.env
+.env.*
+!.env.example
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backups
+*.bak
+*.backup
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 *.m4a
 *.log
 

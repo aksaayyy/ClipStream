@@ -4,7 +4,7 @@ services:
   yt-fetcher:
     build: ./services/yt-fetcher
     volumes:
-      - shared_data:/data
+      - ./data:/data  # Mount local data directory to container
     ports:
       - "8001:8000"  # Changed external port to 8001 to avoid conflict
     environment:
@@ -12,37 +12,42 @@ services:
       - MAX_FILE_SIZE_MB=4000  # 4GB max file size
       - MAX_VIDEO_LENGTH=14400  # 4 hours max duration
       - RATE_LIMIT=50/day  # More conservative limit for production
+      - ENV=production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - clipstream_network
 
   transcriber:
     build: ./services/transcriber
     volumes:
-      - shared_data:/data
+      - ./data:/data  # Mount local data directory to container
     ports:
       - "5002:5002"  # Using port 5002 on host to match container's port
     environment:
       - DOWNLOAD_DIR=/data/downloads
       - TRANSCRIPTS_DIR=/data/transcripts
+      - ENV=production
     depends_on:
-      - yt-fetcher
+      yt-fetcher:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 30s
-      timeout: 10s
-      retries: 3
+      timeout: 30s  # Increased timeout for Whisper model loading
+      retries: 6
+      start_period: 300s  # Give more time for the Whisper model to load
     networks:
       - clipstream_network
 
   clip-renderer:
     build: ./services/clip-renderer
     volumes:
-      - shared_data:/data
+      - ./data:/data  # Mount local data directory to container
     ports:
       - "8080:5004"  # Map host port 8080 to container port 5004
     environment:
@@ -61,8 +66,7 @@ services:
     networks:
       - clipstream_network
 
-volumes:
-  shared_data:
+# Using bind mounts instead of named volumes for better host-container file sharing
 
 networks:
   clipstream_network:
