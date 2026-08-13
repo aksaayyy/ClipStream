@@ -1,60 +1,47 @@
-# Python
+# Byte-compiled / optimized files
 __pycache__/
 *.py[cod]
+*.pyc
 *$py.class
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# Virtual Environment
+# Virtual environments
+.venv/
 venv/
 env/
 ENV/
-.env
-.venv
 
-# IDE
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
 .DS_Store
+.DS_Store?
 
-# Project specific
-# Data directories
+# Runtime data and outputs
 data/
-!data/README.md
-!data/.gitkeep
-
-# Output files
+data/clips/
+services/*/data/
 rendered_clips/
 test_output/
 test_output_enhanced/
 test_output_fixed/
 
-# Service-specific ignores
-services/downloads/
-services/transcriber/models/
-services/transcriber/.cache/
-services/transcriber/__pycache__/
-services/yt-fetcher/__pycache__/
-services/clip-renderer/__pycache__/
-services/analyzer/__pycache__/
+# Process and log files
+*.pid
+*.log
+logs/
+
+# Backups
+*.bak
+*.backup
 
 # Media files
 *.mp4
@@ -64,63 +51,21 @@ services/analyzer/__pycache__/
 *.mov
 *.avi
 *.mkv
-
-# Logs
-*.log
-
-# Local development
-.env
-.env.*
-!.env.example
-
-# Temporary files
-*.tmp
-*.temp
-
-# Backups
-*.bak
-*.backup
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 *.m4a
-*.log
 
-# Environment variables
-.env
-.env.*
-!.env.example
+# Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
 
-# Local development
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Testing
+# Testing and coverage
 .coverage
 htmlcov/
 .pytest_cache/
 .tox/
 
-# Logs
-logs/
-*.log
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Local database and notebook artifacts
+local_settings.py
+db.sqlite3
+.ipynb_checkpoints/
